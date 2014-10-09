@@ -63,8 +63,72 @@ typedef enum stateTypeEnum{WaitForPress, WaitForRelease, LEDToggle} stateType; /
 
 int main(void)
 {
-     stateType state;  //creates a state variable to be used in the switch statement
+    stateType state;  //creates a state variable to be used in the switch statement
+    // Set Timer 1's period value regsiter to value for 250ms. Please note
+    // T1CON's register settings below (internal Fosc/2 and 1:256 prescalar).
+    //
+    //    Fosc     = XTFREQ * PLLMODE
+    //             = 7372800 * 4
+    //             = 29491200
+    //
+    //    Fosc/2   = 29491200 / 2
+    //             = 14745600
+    //
+    //    Timer 1 Freq = (Fosc/2) / Prescaler
+    //                 = 14745600 / 256
+    //                 = 57600
+    //
+    //    PR1 = 25 ms / (1 / (T1 Freq))
+    //        = 25e-3 / (1 / 57600)
+    //        = 25e-3 * 57600
+    //        = 1440
+    PR1 = 1440;
 
+    // Clear Timer 1 interrupt flag. This allows us to detect the
+    // first interupt.
+    IFS0bits.T1IF = 0;
+
+    // Enable the interrupt for Timer 1
+    IEC0bits.T1IE = 1;
+
+    // Setup Timer 1 control register (T1CON) to:
+    //     TON           = 1     (start timer)
+    //     TCKPS1:TCKPS2 = 11    (set timer prescaler to 1:256)
+    //     TCS           = 0     (Fosc/2)
+    T1CON = 0x8030;
+
+    // Set UART1's baud rate generator register (U1BRG) to the value calculated above.
+    U1BRG  = BRGVAL;
+
+    // Set UART1's mode register to 8-bit data, no parity, 1 stop bit, enabled.
+    //     UARTEN        = 1     (enable UART)
+    //     PDSEL1:PDSEL0 = 00    (8-bit data, no parity)
+    //     STSEL         = 0     (1 stop bit)
+    U1MODE = 0x8000;
+
+    // Set UART2's status and control register
+    //     UTXISEL1:UTXISEL0 = 00    (U1TXIF set when character
+    //                                written to trasmit buffer)
+    //     UTXEN             = 1     (trasnmit enabled)
+    //     URXISEL1:URXISEL0 = 01    (U1RXIF set when any character
+    //                                is received in receive buffer)
+    //     RIDLE             = 0     (Reciver is active)
+    U1STA  = 0x0440; 		// Reset status register and enable TX & RX
+
+    // Clear the UART RX interrupt flag. Althouhg we are not using a ISR for
+    // the UART receive, the UART RX interrupt flag can be used to deermine if
+    // we have recived a character from he UART.
+    IFS0bits.U1RXIF = 0;
+
+        printf("\n\n\Christopher Sanford\n\r");
+
+        // Print a message requesting the user to select a LED to toggle.
+	printf("Current State: ");
+
+	// The main loop for your microcontroller should not exit (return), as
+	// the program should run as long as the device is powered on.
+
+ 
     while(1)
     {
         switch(state){
@@ -90,7 +154,6 @@ int main(void)
                     if(PORTBbits.RB5 == 1) //when SW1 is not pressed
                     {
                         state = WaitForPress;
-                        PR1 = 14400; // reset the blinking rate of the active LED
                         TMR1 = 0; // resets the TMR1 register to 0
                     }
 
